@@ -3,6 +3,27 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+	font-family: "Bebas Kai";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("/fonts/BebasKai.ttf") format("truetype");
+}
+
+@font-face {
+	font-family: "Board of Directors Heavy";
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url("/fonts/BoardOfDirectorsHeavy.ttf") format("truetype");
+}
+
+@theme {
+  --font-bebas-kai: "Bebas Kai", sans-serif;
+	--font-board-of-directors: "Board of Directors Heavy", sans-serif;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

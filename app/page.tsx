@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CropperComponent } from "@/components/cropper"
+import { CombinedImageGenerator } from "@/components/combined-image-generator"
 
 type AspectRatio = "feed" | "story"
 
@@ -26,6 +27,7 @@ interface CropSettings {
     height: number
   }
   croppedImageUrl: string | null
+  finalImageUrl: string | null
   proxiedImageUrl: string | null
 }
 
@@ -33,8 +35,8 @@ export default function ImageCropper() {
   const [settings, setSettings] = useState<CropSettings>({
     imageUrl: "https://clickumuarama.com.br/wp-content/uploads/2025/06/DSC04253.jpg",
     kicker: "",
-    kickerBgColor: "#000000",
-    kickerTextColor: "#ffffff",
+    kickerBgColor: "#D4D4D4",
+    kickerTextColor: "#000000",
     title: "",
     aspectRatio: "feed",
     crop: {
@@ -44,6 +46,7 @@ export default function ImageCropper() {
       height: 500,
     },
     croppedImageUrl: null,
+    finalImageUrl: null,
     proxiedImageUrl: null,
   })
 
@@ -160,20 +163,20 @@ export default function ImageCropper() {
   }, [settings.imageUrl])
 
   const downloadImage = useCallback(() => {
-    if (!settings.croppedImageUrl) {
-      alert("Por favor, adicione uma URL de imagem e faça o crop primeiro.")
+    if (!settings.finalImageUrl) {
+      alert("Por favor, adicione uma URL de imagem, faça o crop e adicione texto primeiro.")
       return
     }
 
     const a = document.createElement("a")
-    a.href = settings.croppedImageUrl
+    a.href = settings.finalImageUrl
     const dimensions = settings.aspectRatio === "feed" ? "1080x1350" : "1080x1920"
     const filename = settings.title.trim()
       ? `${settings.title.trim()}_${dimensions}.png`
       : `${settings.aspectRatio === "feed" ? "feed" : "story"}_${dimensions}.png`
     a.download = filename
     a.click()
-  }, [settings.croppedImageUrl, settings.title, settings.aspectRatio])
+  }, [settings.finalImageUrl, settings.title, settings.aspectRatio])
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -283,17 +286,38 @@ export default function ImageCropper() {
                     onChange={(e) => setSettings((prev) => ({ ...prev, title: e.target.value }))}
                   />
                 </div>
-
                 <Button
                   onClick={downloadImage}
                   className="w-full"
-                  disabled={!settings.croppedImageUrl}
+                  disabled={!settings.finalImageUrl}
                 >
                   {settings.aspectRatio === "feed" ? "Baixar imagem" : "Baixar story"}
                 </Button>
               </CardContent>
             </Card>
           </div>
+
+          {settings.croppedImageUrl && (
+            <Card className="lg:col-span-4">
+              <CardHeader>
+                <CardTitle>Preview Final</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] flex items-center justify-center">
+                  <CombinedImageGenerator
+                    croppedImageUrl={settings.croppedImageUrl}
+                    kicker={settings.kicker}
+                    title={settings.title}
+                    kickerBgColor={settings.kickerBgColor}
+                    kickerTextColor={settings.kickerTextColor}
+                    aspectRatio={settings.aspectRatio}
+                    onFinalImageGenerated={(imageUrl) => setSettings((prev) => ({ ...prev, finalImageUrl: imageUrl }))}
+                    className="w-full h-full"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
