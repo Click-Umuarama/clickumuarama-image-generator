@@ -1,103 +1,301 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import type React from "react"
+
+import { useState, useCallback, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CropperComponent } from "@/components/cropper"
+
+type AspectRatio = "feed" | "story"
+
+interface CropSettings {
+  imageUrl: string
+  kicker: string
+  kickerBgColor: string
+  kickerTextColor: string
+  title: string
+  aspectRatio: AspectRatio
+  crop: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  croppedImageUrl: string | null
+  proxiedImageUrl: string | null
+}
+
+export default function ImageCropper() {
+  const [settings, setSettings] = useState<CropSettings>({
+    imageUrl: "https://clickumuarama.com.br/wp-content/uploads/2025/06/DSC04253.jpg",
+    kicker: "",
+    kickerBgColor: "#000000",
+    kickerTextColor: "#ffffff",
+    title: "",
+    aspectRatio: "feed",
+    crop: {
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 500,
+    },
+    croppedImageUrl: null,
+    proxiedImageUrl: null,
+  })
+
+  const fetchImageThroughProxy = useCallback(async (imageUrl: string) => {
+    try {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`
+      const response = await fetch(proxyUrl)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+
+      setSettings((prev) => ({ ...prev, proxiedImageUrl: blobUrl }))
+    } catch (error) {
+      console.error("Error fetching image through proxy:", error)
+    }
+  }, [])
+
+  const generateCroppedImage = useCallback(async () => {
+    if (!settings.crop || !settings.proxiedImageUrl) return
+
+    try {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+
+      if (!ctx) {
+        throw new Error('Could not get canvas context')
+      }
+
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+
+      img.onload = () => {
+        const outputWidth = 1080
+        const outputHeight = settings.aspectRatio === "feed" ? 1350 : 1920
+
+        canvas.width = outputWidth
+        canvas.height = outputHeight
+
+        ctx.drawImage(
+          img,
+          settings.crop.x,
+          settings.crop.y,
+          settings.crop.width,
+          settings.crop.height,
+          0,
+          0,
+          outputWidth,
+          outputHeight
+        )
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const croppedImageUrl = URL.createObjectURL(blob)
+            setSettings((prev) => ({ ...prev, croppedImageUrl }))
+          }
+        }, 'image/png')
+      }
+
+      img.onerror = () => {
+        throw new Error('Failed to load image')
+      }
+
+      img.src = settings.proxiedImageUrl
+    } catch (error) {
+      console.error("Error generating cropped image:", error)
+    }
+  }, [settings.crop, settings.proxiedImageUrl, settings.aspectRatio])
+
+  const handleAspectRatioChange = (ratio: AspectRatio) => {
+    setSettings((prev) => ({ ...prev, aspectRatio: ratio }))
+  }
+
+  const handleCropChange = useCallback((crop: { x: number; y: number; width: number; height: number } | null) => {
+    if (crop) {
+      setSettings((prev) => ({ ...prev, crop }))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (settings.imageUrl) {
+      fetchImageThroughProxy(settings.imageUrl)
+    }
+  }, [settings.imageUrl, fetchImageThroughProxy])
+
+  useEffect(() => {
+    if (settings.crop && settings.crop.width > 0 && settings.crop.height > 0 && settings.proxiedImageUrl) {
+      generateCroppedImage()
+    }
+  }, [settings.crop, settings.proxiedImageUrl, generateCroppedImage])
+
+  useEffect(() => {
+    return () => {
+      if (settings.croppedImageUrl && settings.croppedImageUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(settings.croppedImageUrl)
+      }
+      if (settings.proxiedImageUrl && settings.proxiedImageUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(settings.proxiedImageUrl)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (settings.croppedImageUrl) {
+      URL.revokeObjectURL(settings.croppedImageUrl)
+    }
+    if (settings.proxiedImageUrl) {
+      URL.revokeObjectURL(settings.proxiedImageUrl)
+    }
+    setSettings((prev) => ({ ...prev, croppedImageUrl: null, proxiedImageUrl: null }))
+  }, [settings.imageUrl])
+
+  const downloadImage = useCallback(() => {
+    if (!settings.croppedImageUrl) {
+      alert("Por favor, adicione uma URL de imagem e faça o crop primeiro.")
+      return
+    }
+
+    const a = document.createElement("a")
+    a.href = settings.croppedImageUrl
+    const dimensions = settings.aspectRatio === "feed" ? "1080x1350" : "1080x1920"
+    const filename = settings.title.trim()
+      ? `${settings.title.trim()}_${dimensions}.png`
+      : `${settings.aspectRatio === "feed" ? "feed" : "story"}_${dimensions}.png`
+    a.download = filename
+    a.click()
+  }, [settings.croppedImageUrl, settings.title, settings.aspectRatio])
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-4 gap-6">
+          <Card className="h-fit lg:col-span-3">
+            <CardHeader>
+              <CardTitle>Visualizar imagem</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="h-[500px] p-4 flex items-center justify-center">
+                {settings.proxiedImageUrl ? (
+                  <CropperComponent
+                    imageUrl={settings.proxiedImageUrl}
+                    aspectRatio={settings.aspectRatio === "feed" ? 4 / 5 : 9 / 16}
+                    onCropChange={handleCropChange}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-[500px]">
+                    <div className="text-center text-gray-500">
+                      <p>Carregando imagem...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Modo de exibição</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs
+                  value={settings.aspectRatio}
+                  onValueChange={(value) => handleAspectRatioChange(value as AspectRatio)}
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="feed">Feed</TabsTrigger>
+                    <TabsTrigger value="story">Story</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="imageUrl">URL da Imagem</Label>
+                  <Input
+                    id="imageUrl"
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={settings.imageUrl}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, imageUrl: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="kicker">Chapéu</Label>
+                  <Input
+                    id="kicker"
+                    placeholder="Ex: Urgente"
+                    value={settings.kicker}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, kicker: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="kickerTextColor">Cor do Texto do Chapéu</Label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="kickerTextColor"
+                        type="color"
+                        value={settings.kickerTextColor}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, kickerTextColor: e.target.value }))}
+                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="kickerBgColor">Cor de Fundo do Chapéu</Label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="kickerBgColor"
+                        type="color"
+                        value={settings.kickerBgColor}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, kickerBgColor: e.target.value }))}
+                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título</Label>
+                  <Input
+                    id="title"
+                    placeholder="Digite o título da matéria..."
+                    value={settings.title}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+
+                <Button
+                  onClick={downloadImage}
+                  className="w-full"
+                  disabled={!settings.croppedImageUrl}
+                >
+                  {settings.aspectRatio === "feed" ? "Baixar imagem" : "Baixar story"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
-  );
+  )
 }
