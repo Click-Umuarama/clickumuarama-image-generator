@@ -49,7 +49,7 @@ export const CombinedImageGenerator = ({
   }, [aspectRatio])
 
   const contentPadding = useMemo(() => {
-    return aspectRatio === 'feed' ? 'pl-[59px] pr-10' : 'px-[59px]'
+    return aspectRatio === 'feed' ? 'pl-[59px] pr-10' : 'pl-[57px]'
   }, [aspectRatio])
 
   const contentMargin = useMemo(() => {
@@ -61,7 +61,7 @@ export const CombinedImageGenerator = ({
   }, [aspectRatio])
 
   const titleTextSize = useMemo(() => {
-    return aspectRatio === 'feed' ? 'text-[48px]' : 'text-[58px]'
+    return aspectRatio === 'feed' ? 'text-[48px]' : 'text-[61px]'
   }, [aspectRatio])
 
   const generateFinalImage = useCallback(async () => {
@@ -150,7 +150,7 @@ export const CombinedImageGenerator = ({
           className="w-full h-full object-cover"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/100 from-0% via-10% to-25% via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-10% to-25% via-black/30 to-transparent" />
 
         {aspectRatio === 'feed' && (
           <div className="absolute top-[38px] left-[58px]">
@@ -170,7 +170,8 @@ export const CombinedImageGenerator = ({
             {debouncedKicker && (
               <div
                 className={cn(
-                  "w-fit px-3 max-h-[72px] flex items-center font-bold rounded-[20px] font-board-of-directors mb-3 ml-[-3px]",
+                  "w-fit flex items-center font-bold rounded-[20px] font-board-of-directors",
+                  aspectRatio === 'feed' ? 'ml-[-3px] mb-3 px-3 max-h-[72px]' : 'ml-1 mb-5 px-5 max-h-[90px]',
                   kickerTextSize
                 )}
                 style={kickerStyles}
@@ -194,7 +195,7 @@ export const CombinedImageGenerator = ({
             )}
 
             {aspectRatio === 'story' && (
-              <div className="flex flex-1 items-center justify-center size-full mb-[157px] mt-[228px]">
+              <div className="flex pr-[57px] flex-1 items-center justify-center size-full mx-auto mb-[130px] mt-[220px]">
                 <img
                   src="/c-logo.png"
                   alt="cu-logo"
