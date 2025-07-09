@@ -1,6 +1,8 @@
+/** biome-ignore-all lint/correctness/useHookAtTopLevel: it is needed to work. */
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
+import Image from "next/image"
 import { cn, useDebounce } from "@/lib/utils"
 
 interface CombinedImageGeneratorProps {
@@ -33,7 +35,7 @@ export const CombinedImageGenerator = ({
   debouncedKickerTextColor: propDebouncedKickerTextColor
 }: CombinedImageGeneratorProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [, setIsGenerating] = useState(false)
   const lastGeneratedRef = useRef<string>("")
 
   const debouncedKicker = propDebouncedKicker ?? useDebounce(kicker, 750)
@@ -94,6 +96,7 @@ export const CombinedImageGenerator = ({
       try {
         const { toPng } = await import('html-to-image')
 
+        // biome-ignore lint/style/noNonNullAssertion: needed to try again before catch the error.
         const dataUrl = await toPng(containerRef.current!, {
           quality: 1.0,
           backgroundColor: '#ffffff',
@@ -144,19 +147,22 @@ export const CombinedImageGenerator = ({
         ref={containerRef}
         className={containerClasses}
       >
-        <img
+        <Image
           src={croppedImageUrl}
           alt="Cropped background"
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-10% to-25% via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-10% to-25% via-black/10 to-transparent" />
 
         {aspectRatio === 'feed' && (
           <div className="absolute top-[38px] left-[58px]">
-            <img
+            <Image
               src="/c-logo.png"
               alt="cu-logo"
+              width={122}
+              height={122}
               className="w-[122px]"
             />
           </div>
@@ -196,9 +202,11 @@ export const CombinedImageGenerator = ({
 
             {aspectRatio === 'story' && (
               <div className="flex pr-[57px] flex-1 items-center justify-center size-full mx-auto mb-[130px] mt-[220px]">
-                <img
+                <Image
                   src="/c-logo.png"
                   alt="cu-logo"
+                  width={103}
+                  height={103}
                   className="max-w-[103px] object-contain"
                 />
               </div>

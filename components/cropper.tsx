@@ -8,6 +8,7 @@ import {
   CropperImage,
 } from "@/components/ui/cropper"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -32,7 +33,7 @@ export const CropperComponent = memo(({
   kickerTextColor = "#000000",
   aspectRatioType = "feed"
 }: CropperComponentProps) => {
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+  const [, setCroppedAreaPixels] = useState<Area | null>(null)
   const [zoom, setZoom] = useState(1)
   const cropperContainerRef = useRef<HTMLDivElement>(null)
 
@@ -65,7 +66,7 @@ export const CropperComponent = memo(({
       const target = event.target as Element
       const cropperContainer = cropperContainerRef.current
 
-      if (cropperContainer && cropperContainer.contains(target) && event.ctrlKey) {
+      if (cropperContainer?.contains(target) && event.ctrlKey) {
         event.preventDefault()
         event.stopImmediatePropagation()
 
@@ -118,15 +119,18 @@ export const CropperComponent = memo(({
         >
           <CropperDescription />
           <CropperImage />
+          {/** biome-ignore lint/correctness/noChildrenProp: it is a lib feat. */}
           <CropperCropArea className="border border-gray-300" children={
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute inset-0 bg-gradient-to-t from-black/100 from-0% via-10% to-25% via-black/50 to-transparent" />
 
               {aspectRatioType === 'feed' && (
                 <div className="absolute top-8 left-[24px]">
-                  <img
+                  <Image
                     src="/c-logo.png"
                     alt="cu-logo"
+                    width={48}
+                    height={48}
                     className="w-[48px] opacity-80"
                   />
                 </div>
@@ -166,9 +170,11 @@ export const CropperComponent = memo(({
 
               {aspectRatioType === 'story' && (
                 <div className="flex flex-1 items-end justify-center size-full">
-                  <img
+                  <Image
                     src="/c-logo.png"
                     alt="cu-logo"
+                    width={24}
+                    height={24}
                     className="max-w-[24px] mb-8 object-contain"
                   />
                 </div>
