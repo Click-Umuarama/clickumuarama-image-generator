@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, memo } from "react"
 import {
   Cropper,
   CropperCropArea,
@@ -16,7 +16,7 @@ type CropperComponentProps = {
   onCropChange?: (crop: Area | null) => void
 }
 
-export function CropperComponent({ imageUrl, aspectRatio, onCropChange }: CropperComponentProps) {
+export const CropperComponent = memo(({ imageUrl, aspectRatio, onCropChange }: CropperComponentProps) => {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [zoom, setZoom] = useState(1)
   const cropperContainerRef = useRef<HTMLDivElement>(null)
@@ -93,4 +93,6 @@ export function CropperComponent({ imageUrl, aspectRatio, onCropChange }: Croppe
       </div>
     </div>
   )
-}
+})
+
+CropperComponent.displayName = "CropperComponent"
