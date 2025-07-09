@@ -189,9 +189,7 @@ export default function ImageCropper() {
 
   const downloadFilename = useMemo(() => {
     const dimensions = settings.aspectRatio === "feed" ? "1080x1350" : "1080x1920"
-    return settings.title.trim()
-      ? `${settings.title.trim()}_${dimensions}.png`
-      : `${settings.aspectRatio === "feed" ? "feed" : "story"}_${dimensions}.png`
+    return `clickumuarama_${settings.aspectRatio === "feed" ? "feed" : "story"}_${dimensions}.png`
   }, [settings.title, settings.aspectRatio])
 
   const cropperAspectRatio = useMemo(() => {
@@ -248,10 +246,7 @@ export default function ImageCropper() {
   }, [settings.imageUrl])
 
   const downloadImage = useCallback(() => {
-    if (!settings.finalImageUrl) {
-      alert("Por favor, adicione uma URL de imagem, faça o crop e adicione texto primeiro.")
-      return
-    }
+    if (!settings.finalImageUrl) return
 
     const a = document.createElement("a")
     a.href = settings.finalImageUrl
@@ -294,6 +289,11 @@ export default function ImageCropper() {
                     imageUrl={settings.proxiedImageUrl}
                     aspectRatio={cropperAspectRatio}
                     onCropChange={handleCropChange}
+                    kicker={settings.kicker}
+                    title={settings.title}
+                    kickerBgColor={settings.kickerBgColor}
+                    kickerTextColor={settings.kickerTextColor}
+                    aspectRatioType={settings.aspectRatio}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-[500px]">
@@ -306,7 +306,7 @@ export default function ImageCropper() {
             </CardContent>
           </Card>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <Card>
               <CardContent>
                 <CardTitle className="pb-4">Modo de exibição</CardTitle>

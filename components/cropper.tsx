@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef, memo } from "react"
+import { useState, useCallback, useEffect, useRef, memo, useMemo } from "react"
 import {
   Cropper,
   CropperCropArea,
   CropperDescription,
   CropperImage,
 } from "@/components/ui/cropper"
+import { cn } from "@/lib/utils"
 
 type Area = { x: number; y: number; width: number; height: number }
 
@@ -14,9 +15,23 @@ type CropperComponentProps = {
   imageUrl: string
   aspectRatio: number
   onCropChange?: (crop: Area | null) => void
+  kicker?: string
+  title?: string
+  kickerBgColor?: string
+  kickerTextColor?: string
+  aspectRatioType?: "feed" | "story"
 }
 
-export const CropperComponent = memo(({ imageUrl, aspectRatio, onCropChange }: CropperComponentProps) => {
+export const CropperComponent = memo(({
+  imageUrl,
+  aspectRatio,
+  onCropChange,
+  kicker = "",
+  title = "",
+  kickerBgColor = "#D4D4D4",
+  kickerTextColor = "#000000",
+  aspectRatioType = "feed"
+}: CropperComponentProps) => {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [zoom, setZoom] = useState(1)
   const cropperContainerRef = useRef<HTMLDivElement>(null)
@@ -29,6 +44,21 @@ export const CropperComponent = memo(({ imageUrl, aspectRatio, onCropChange }: C
   const handleZoomChange = useCallback((newZoom: number) => {
     setZoom(newZoom)
   }, [])
+
+  const textStyles = useMemo(() => {
+    const isFeed = aspectRatioType === "feed"
+
+    return {
+      contentPadding: isFeed ? 'pl-[14px] pr-10' : 'px-[10px]',
+      contentMargin: isFeed ? 'mb-[24px]' : 'mb-24',
+      kickerTextSize: isFeed ? 'text-[18px]' : 'text-[16px]',
+      titleTextSize: isFeed ? 'text-[16px]' : 'text-[12px]',
+      kickerStyles: {
+        color: kickerTextColor,
+        backgroundColor: kickerBgColor
+      }
+    }
+  }, [aspectRatioType, kickerTextColor, kickerBgColor])
 
   useEffect(() => {
     const handleGlobalWheel = (event: WheelEvent) => {
@@ -73,7 +103,7 @@ export const CropperComponent = memo(({ imageUrl, aspectRatio, onCropChange }: C
     <div className="w-full h-full">
       <div
         ref={cropperContainerRef}
-        className="w-full h-full"
+        className="w-full h-full relative"
       >
         <Cropper
           className="w-full h-full"
@@ -88,7 +118,63 @@ export const CropperComponent = memo(({ imageUrl, aspectRatio, onCropChange }: C
         >
           <CropperDescription />
           <CropperImage />
-          <CropperCropArea className="border border-gray-300" />
+          <CropperCropArea className="border border-gray-300" children={
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/100 from-0% via-10% to-25% via-black/50 to-transparent" />
+
+              {aspectRatioType === 'feed' && (
+                <div className="absolute top-8 left-[24px]">
+                  <img
+                    src="/c-logo.png"
+                    alt="cu-logo"
+                    className="w-[48px] opacity-80"
+                  />
+                </div>
+              )}
+
+              <div className={cn(
+                "absolute inset-0 flex items-end justify-start",
+                textStyles.contentPadding
+              )}>
+                <div className={cn("w-full", textStyles.contentMargin)}>
+                  {kicker && (
+                    <div
+                      className={cn(
+                        "inline-block px-2 py-0 font-bold rounded-[12px] mb-1 font-board-of-directors",
+                        textStyles.kickerTextSize
+                      )}
+                      style={textStyles.kickerStyles}
+                    >
+                      {kicker}
+                    </div>
+                  )}
+
+                  {title && (
+                    <h3
+                      className={cn(
+                        "text-white leading-tight whitespace-pre-wrap font-bebas-kai",
+                        `text-shadow-[0px_15px_14.5px_rgba(0,0,0,1)]`,
+                        textStyles.titleTextSize
+                      )}
+                    >
+                      {title}
+                    </h3>
+                  )}
+
+                </div>
+              </div>
+
+              {aspectRatioType === 'story' && (
+                <div className="flex flex-1 items-end justify-center size-full">
+                  <img
+                    src="/c-logo.png"
+                    alt="cu-logo"
+                    className="max-w-[24px] mb-8 object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          } />
         </Cropper>
       </div>
     </div>

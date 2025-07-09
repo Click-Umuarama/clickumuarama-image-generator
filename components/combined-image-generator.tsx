@@ -10,7 +10,6 @@ interface CombinedImageGeneratorProps {
   kickerBgColor: string
   kickerTextColor: string
   aspectRatio: "feed" | "story"
-  showLogo?: boolean
   onFinalImageGenerated?: (imageUrl: string) => void
   className?: string
   debouncedKicker?: string
@@ -26,7 +25,6 @@ export const CombinedImageGenerator = ({
   kickerBgColor,
   kickerTextColor,
   aspectRatio,
-  showLogo = true,
   onFinalImageGenerated,
   className,
   debouncedKicker: propDebouncedKicker,
@@ -43,12 +41,6 @@ export const CombinedImageGenerator = ({
   const debouncedKickerBgColor = propDebouncedKickerBgColor ?? useDebounce(kickerBgColor, 750)
   const debouncedKickerTextColor = propDebouncedKickerTextColor ?? useDebounce(kickerTextColor, 750)
 
-  const containerDimensions = useMemo(() => {
-    const width = aspectRatio === "feed" ? 1080 : 1080
-    const height = aspectRatio === "feed" ? 1350 : 1920
-    return { width, height }
-  }, [aspectRatio])
-
   const containerClasses = useMemo(() => {
     return cn(
       "relative overflow-hidden",
@@ -57,11 +49,11 @@ export const CombinedImageGenerator = ({
   }, [aspectRatio])
 
   const contentPadding = useMemo(() => {
-    return aspectRatio === 'feed' ? 'pl-[62px] pr-10' : 'px-[59px]'
+    return aspectRatio === 'feed' ? 'pl-[59px] pr-10' : 'px-[59px]'
   }, [aspectRatio])
 
   const contentMargin = useMemo(() => {
-    return aspectRatio === 'feed' ? 'mb-[64px]' : 'mb-6'
+    return aspectRatio === 'feed' ? 'mb-[58px]' : 'mb-6'
   }, [aspectRatio])
 
   const kickerTextSize = useMemo(() => {
@@ -91,18 +83,8 @@ export const CombinedImageGenerator = ({
       const dataUrl = await toPng(containerRef.current, {
         quality: 1.0,
         backgroundColor: '#ffffff',
-        width: containerDimensions.width,
-        height: containerDimensions.height,
-        style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left'
-        },
-        filter: (node) => {
-          if (node instanceof HTMLImageElement) {
-            return node.complete && node.naturalWidth > 0
-          }
-          return true
-        }
+        width: 1080,
+        height: aspectRatio === "feed" ? 1350 : 1920,
       })
 
       lastGeneratedRef.current = currentState
@@ -115,12 +97,8 @@ export const CombinedImageGenerator = ({
         const dataUrl = await toPng(containerRef.current!, {
           quality: 1.0,
           backgroundColor: '#ffffff',
-          width: containerDimensions.width,
-          height: containerDimensions.height,
-          style: {
-            transform: 'scale(1)',
-            transformOrigin: 'top left'
-          }
+          width: 1080,
+          height: aspectRatio === "feed" ? 1350 : 1920,
         })
 
         lastGeneratedRef.current = currentState
@@ -139,7 +117,6 @@ export const CombinedImageGenerator = ({
     debouncedKickerTextColor,
     aspectRatio,
     onFinalImageGenerated,
-    containerDimensions
   ])
 
   useEffect(() => {
@@ -166,10 +143,6 @@ export const CombinedImageGenerator = ({
       <div
         ref={containerRef}
         className={containerClasses}
-        style={{
-          transform: 'scale(0.23)',
-          transformOrigin: 'top left'
-        }}
       >
         <img
           src={croppedImageUrl}
@@ -177,14 +150,14 @@ export const CombinedImageGenerator = ({
           className="w-full h-full object-cover"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/100 from-0% via-10% to-25% via-black/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/100 from-0% via-10% to-25% via-black/30 to-transparent" />
 
-        {aspectRatio === 'feed' && showLogo && (
-          <div className="absolute top-8 left-[62px]">
+        {aspectRatio === 'feed' && (
+          <div className="absolute top-[38px] left-[58px]">
             <img
               src="/c-logo.png"
               alt="cu-logo"
-              className="w-[132px]"
+              className="w-[122px]"
             />
           </div>
         )}
@@ -197,7 +170,7 @@ export const CombinedImageGenerator = ({
             {debouncedKicker && (
               <div
                 className={cn(
-                  "inline-block px-2 py-0 font-bold rounded-[20px] mb-3 font-board-of-directors",
+                  "w-fit px-3 max-h-[72px] flex items-center font-bold rounded-[20px] font-board-of-directors mb-3 ml-[-3px]",
                   kickerTextSize
                 )}
                 style={kickerStyles}
@@ -207,18 +180,20 @@ export const CombinedImageGenerator = ({
             )}
 
             {debouncedTitle && (
-              <h3
+              <p
                 className={cn(
-                  "text-white leading-tight whitespace-pre-wrap font-bebas-kai",
-                  `text-shadow-[0px_15px_14.5px_rgba(0,0,0,1)]`,
+                  "text-white whitespace-pre-wrap font-bebas-kai text-shadow-[0px_15px_25px_rgba(0,0,0,1),0px_15px_35px_rgba(0,0,0,1),0px_15px_45px_rgba(0,0,0,1)]",
                   titleTextSize
                 )}
+                style={{
+                  lineHeight: '1.2'
+                }}
               >
                 {debouncedTitle}
-              </h3>
+              </p>
             )}
 
-            {aspectRatio === 'story' && showLogo && (
+            {aspectRatio === 'story' && (
               <div className="flex flex-1 items-center justify-center size-full mb-[157px] mt-[228px]">
                 <img
                   src="/c-logo.png"
@@ -230,12 +205,6 @@ export const CombinedImageGenerator = ({
           </div>
         </div>
       </div>
-
-      {isGenerating && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/50">
-          <div className="text-sm text-gray-600">Gerando imagem final...</div>
-        </div>
-      )}
-    </div>
+    </div >
   )
 } 
