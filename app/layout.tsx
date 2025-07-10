@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Suspense } from 'react'
 
 export const metadata: Metadata = {
 	title: 'Cover Generator',
@@ -13,7 +14,11 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="pt-BR">
-			<body className={`antialiased`}>{children}</body>
+			<body className={`antialiased`}>
+				<Suspense fallback={<div>Loading...</div>}>
+					{children}
+				</Suspense>
+			</body>
 		</html>
 	)
 }
