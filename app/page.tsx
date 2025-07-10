@@ -1,301 +1,484 @@
-"use client"
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: too much useEffect to do individualy.
+ * some dependencies aren't added 'cause it isn't needed.
+ */
+'use client'
 
-import type React from "react"
+import { useSearchParams } from 'next/navigation'
+import type React from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CombinedImageGenerator } from '@/components/combined-image-generator'
+import { CropperComponent } from '@/components/cropper'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { useDebounceWithState } from '@/lib/utils'
 
-import { useState, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CropperComponent } from "@/components/cropper"
-
-type AspectRatio = "feed" | "story"
+type AspectRatio = 'feed' | 'story'
 
 interface CropSettings {
-  imageUrl: string
-  kicker: string
-  kickerBgColor: string
-  kickerTextColor: string
-  title: string
-  aspectRatio: AspectRatio
-  crop: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  croppedImageUrl: string | null
-  proxiedImageUrl: string | null
+	imageUrl: string
+	kicker: string
+	kickerBgColor: string
+	kickerTextColor: string
+	title: string
+	aspectRatio: AspectRatio
+	crop: {
+		x: number
+		y: number
+		width: number
+		height: number
+	}
+	croppedImageUrl: string | null
+	finalImageUrl: string | null
+	proxiedImageUrl: string | null
 }
 
 export default function ImageCropper() {
-  const [settings, setSettings] = useState<CropSettings>({
-    imageUrl: "https://clickumuarama.com.br/wp-content/uploads/2025/06/DSC04253.jpg",
-    kicker: "",
-    kickerBgColor: "#000000",
-    kickerTextColor: "#ffffff",
-    title: "",
-    aspectRatio: "feed",
-    crop: {
-      x: 0,
-      y: 0,
-      width: 400,
-      height: 500,
-    },
-    croppedImageUrl: null,
-    proxiedImageUrl: null,
-  })
+	const searchParams = useSearchParams()
+	const imgParam = searchParams.get('img')
+	const kickerParam = searchParams.get('kicker')
+	const titleParam = searchParams.get('title')
+	const kickerBgColorParam = searchParams.get('kickerBg')
+	const kickerTextColorParam = searchParams.get('kickerColor')
 
-  const fetchImageThroughProxy = useCallback(async (imageUrl: string) => {
-    try {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`
-      const response = await fetch(proxyUrl)
+	const [settings, setSettings] = useState<CropSettings>({
+		imageUrl: imgParam ?? '',
+		kicker: kickerParam ?? '',
+		kickerBgColor: kickerBgColorParam ?? '#D4D4D4',
+		kickerTextColor: kickerTextColorParam ?? '#000000',
+		title: titleParam ?? '',
+		aspectRatio: 'feed',
+		crop: {
+			x: 0,
+			y: 0,
+			width: 400,
+			height: 500
+		},
+		croppedImageUrl: null,
+		finalImageUrl: null,
+		proxiedImageUrl: null
+	})
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`)
-      }
+	const [isProcessing, setIsProcessing] = useState(false)
 
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
+	const prevCropRef = useRef(settings.crop)
+	const prevAspectRatioRef = useRef(settings.aspectRatio)
+	const prevProxiedImageUrlRef = useRef<string | null>(null)
 
-      setSettings((prev) => ({ ...prev, proxiedImageUrl: blobUrl }))
-    } catch (error) {
-      console.error("Error fetching image through proxy:", error)
-    }
-  }, [])
+	const [debouncedCrop, isCropDebouncing] = useDebounceWithState(
+		settings.crop,
+		750
+	)
+	const [debouncedAspectRatio, isAspectRatioDebouncing] = useDebounceWithState(
+		settings.aspectRatio,
+		750
+	)
+	const [debouncedKicker, isKickerDebouncing] = useDebounceWithState(
+		settings.kicker,
+		750
+	)
+	const [debouncedTitle, isTitleDebouncing] = useDebounceWithState(
+		settings.title,
+		750
+	)
+	const [debouncedKickerBgColor, isKickerBgColorDebouncing] =
+		useDebounceWithState(settings.kickerBgColor, 750)
+	const [debouncedKickerTextColor, isKickerTextColorDebouncing] =
+		useDebounceWithState(settings.kickerTextColor, 750)
 
-  const generateCroppedImage = useCallback(async () => {
-    if (!settings.crop || !settings.proxiedImageUrl) return
+	const fetchImageThroughProxy = useCallback(async (imageUrl: string) => {
+		try {
+			setIsProcessing(true)
+			const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`
+			const response = await fetch(proxyUrl)
 
-    try {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
+			if (!response.ok) {
+				throw new Error(`Failed to fetch image: ${response.statusText}`)
+			}
 
-      if (!ctx) {
-        throw new Error('Could not get canvas context')
-      }
+			const blob = await response.blob()
+			const blobUrl = URL.createObjectURL(blob)
 
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
+			setSettings(prev => ({ ...prev, proxiedImageUrl: blobUrl }))
+		} catch (error) {
+			console.error('Error fetching image through proxy:', error)
+		} finally {
+			setIsProcessing(false)
+		}
+	}, [])
 
-      img.onload = () => {
-        const outputWidth = 1080
-        const outputHeight = settings.aspectRatio === "feed" ? 1350 : 1920
+	const generateCroppedImage = useCallback(async () => {
+		if (!debouncedCrop || !settings.proxiedImageUrl) return
 
-        canvas.width = outputWidth
-        canvas.height = outputHeight
+		const prevCrop = prevCropRef.current
+		const hasCropChanged =
+			prevCrop.x !== debouncedCrop.x ||
+			prevCrop.y !== debouncedCrop.y ||
+			prevCrop.width !== debouncedCrop.width ||
+			prevCrop.height !== debouncedCrop.height
 
-        ctx.drawImage(
-          img,
-          settings.crop.x,
-          settings.crop.y,
-          settings.crop.width,
-          settings.crop.height,
-          0,
-          0,
-          outputWidth,
-          outputHeight
-        )
+		const hasAspectRatioChanged =
+			prevAspectRatioRef.current !== debouncedAspectRatio
 
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const croppedImageUrl = URL.createObjectURL(blob)
-            setSettings((prev) => ({ ...prev, croppedImageUrl }))
-          }
-        }, 'image/png')
-      }
+		const hasImageChanged =
+			prevProxiedImageUrlRef.current !== settings.proxiedImageUrl
 
-      img.onerror = () => {
-        throw new Error('Failed to load image')
-      }
+		if (!hasCropChanged && !hasAspectRatioChanged && !hasImageChanged) {
+			return
+		}
 
-      img.src = settings.proxiedImageUrl
-    } catch (error) {
-      console.error("Error generating cropped image:", error)
-    }
-  }, [settings.crop, settings.proxiedImageUrl, settings.aspectRatio])
+		try {
+			setIsProcessing(true)
+			const canvas = document.createElement('canvas')
+			const ctx = canvas.getContext('2d')
 
-  const handleAspectRatioChange = (ratio: AspectRatio) => {
-    setSettings((prev) => ({ ...prev, aspectRatio: ratio }))
-  }
+			if (!ctx) {
+				throw new Error('Could not get canvas context')
+			}
 
-  const handleCropChange = useCallback((crop: { x: number; y: number; width: number; height: number } | null) => {
-    if (crop) {
-      setSettings((prev) => ({ ...prev, crop }))
-    }
-  }, [])
+			const img = new Image()
+			img.crossOrigin = 'anonymous'
 
-  useEffect(() => {
-    if (settings.imageUrl) {
-      fetchImageThroughProxy(settings.imageUrl)
-    }
-  }, [settings.imageUrl, fetchImageThroughProxy])
+			img.onload = () => {
+				const outputWidth = 1080
+				const outputHeight = debouncedAspectRatio === 'feed' ? 1350 : 1920
 
-  useEffect(() => {
-    if (settings.crop && settings.crop.width > 0 && settings.crop.height > 0 && settings.proxiedImageUrl) {
-      generateCroppedImage()
-    }
-  }, [settings.crop, settings.proxiedImageUrl, generateCroppedImage])
+				canvas.width = outputWidth
+				canvas.height = outputHeight
 
-  useEffect(() => {
-    return () => {
-      if (settings.croppedImageUrl && settings.croppedImageUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(settings.croppedImageUrl)
-      }
-      if (settings.proxiedImageUrl && settings.proxiedImageUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(settings.proxiedImageUrl)
-      }
-    }
-  }, [])
+				ctx.drawImage(
+					img,
+					debouncedCrop.x,
+					debouncedCrop.y,
+					debouncedCrop.width,
+					debouncedCrop.height,
+					0,
+					0,
+					outputWidth,
+					outputHeight
+				)
 
-  useEffect(() => {
-    if (settings.croppedImageUrl) {
-      URL.revokeObjectURL(settings.croppedImageUrl)
-    }
-    if (settings.proxiedImageUrl) {
-      URL.revokeObjectURL(settings.proxiedImageUrl)
-    }
-    setSettings((prev) => ({ ...prev, croppedImageUrl: null, proxiedImageUrl: null }))
-  }, [settings.imageUrl])
+				canvas.toBlob(blob => {
+					if (blob) {
+						if (settings.croppedImageUrl?.startsWith('blob:')) {
+							URL.revokeObjectURL(settings.croppedImageUrl)
+						}
 
-  const downloadImage = useCallback(() => {
-    if (!settings.croppedImageUrl) {
-      alert("Por favor, adicione uma URL de imagem e faça o crop primeiro.")
-      return
-    }
+						const croppedImageUrl = URL.createObjectURL(blob)
+						setSettings(prev => ({ ...prev, croppedImageUrl }))
 
-    const a = document.createElement("a")
-    a.href = settings.croppedImageUrl
-    const dimensions = settings.aspectRatio === "feed" ? "1080x1350" : "1080x1920"
-    const filename = settings.title.trim()
-      ? `${settings.title.trim()}_${dimensions}.png`
-      : `${settings.aspectRatio === "feed" ? "feed" : "story"}_${dimensions}.png`
-    a.download = filename
-    a.click()
-  }, [settings.croppedImageUrl, settings.title, settings.aspectRatio])
+						prevCropRef.current = debouncedCrop
+						prevAspectRatioRef.current = debouncedAspectRatio
+						prevProxiedImageUrlRef.current = settings.proxiedImageUrl
+					}
+				}, 'image/png')
+			}
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-4 gap-6">
-          <Card className="h-fit lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Visualizar imagem</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="h-[500px] p-4 flex items-center justify-center">
-                {settings.proxiedImageUrl ? (
-                  <CropperComponent
-                    imageUrl={settings.proxiedImageUrl}
-                    aspectRatio={settings.aspectRatio === "feed" ? 4 / 5 : 9 / 16}
-                    onCropChange={handleCropChange}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-[500px]">
-                    <div className="text-center text-gray-500">
-                      <p>Carregando imagem...</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+			img.onerror = () => {
+				throw new Error('Failed to load image')
+			}
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Modo de exibição</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs
-                  value={settings.aspectRatio}
-                  onValueChange={(value) => handleAspectRatioChange(value as AspectRatio)}
-                >
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="feed">Feed</TabsTrigger>
-                    <TabsTrigger value="story">Story</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </CardContent>
-            </Card>
+			img.src = settings.proxiedImageUrl
+		} catch (error) {
+			console.error('Error generating cropped image:', error)
+		} finally {
+			setIsProcessing(false)
+		}
+	}, [debouncedCrop, debouncedAspectRatio, settings.proxiedImageUrl])
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">URL da Imagem</Label>
-                  <Input
-                    id="imageUrl"
-                    type="url"
-                    placeholder="https://example.com/image.jpg"
-                    value={settings.imageUrl}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                  />
-                </div>
+	const handleAspectRatioChange = useCallback((ratio: AspectRatio) => {
+		setSettings(prev => ({ ...prev, aspectRatio: ratio }))
+	}, [])
 
-                <div className="space-y-2">
-                  <Label htmlFor="kicker">Chapéu</Label>
-                  <Input
-                    id="kicker"
-                    placeholder="Ex: Urgente"
-                    value={settings.kicker}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, kicker: e.target.value }))}
-                  />
-                </div>
+	const handleCropChange = useCallback(
+		(crop: { x: number; y: number; width: number; height: number } | null) => {
+			if (crop) {
+				setSettings(prev => ({ ...prev, crop }))
+			}
+		},
+		[]
+	)
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="kickerTextColor">Cor do Texto do Chapéu</Label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        id="kickerTextColor"
-                        type="color"
-                        value={settings.kickerTextColor}
-                        onChange={(e) => setSettings((prev) => ({ ...prev, kickerTextColor: e.target.value }))}
-                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
-                      />
-                    </div>
-                  </div>
+	const downloadFilename = useMemo(() => {
+		const dimensions =
+			settings.aspectRatio === 'feed' ? '1080x1350' : '1080x1920'
+		return `clickumuarama_${settings.aspectRatio === 'feed' ? 'feed' : 'story'}_${dimensions}.png`
+	}, [settings.title, settings.aspectRatio])
 
-                  <div className="space-y-2">
-                    <Label htmlFor="kickerBgColor">Cor de Fundo do Chapéu</Label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        id="kickerBgColor"
-                        type="color"
-                        value={settings.kickerBgColor}
-                        onChange={(e) => setSettings((prev) => ({ ...prev, kickerBgColor: e.target.value }))}
-                        className="w-full h-8 rounded border border-gray-300 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </div>
+	const cropperAspectRatio = useMemo(() => {
+		return settings.aspectRatio === 'feed' ? 4 / 5 : 9 / 16
+	}, [settings.aspectRatio])
 
-                <div className="space-y-2">
-                  <Label htmlFor="title">Título</Label>
-                  <Input
-                    id="title"
-                    placeholder="Digite o título da matéria..."
-                    value={settings.title}
-                    onChange={(e) => setSettings((prev) => ({ ...prev, title: e.target.value }))}
-                  />
-                </div>
+	const isAnyDebouncing = useMemo(() => {
+		return (
+			isCropDebouncing ||
+			isAspectRatioDebouncing ||
+			isKickerDebouncing ||
+			isTitleDebouncing ||
+			isKickerBgColorDebouncing ||
+			isKickerTextColorDebouncing
+		)
+	}, [
+		isCropDebouncing,
+		isAspectRatioDebouncing,
+		isKickerDebouncing,
+		isTitleDebouncing,
+		isKickerBgColorDebouncing,
+		isKickerTextColorDebouncing
+	])
 
-                <Button
-                  onClick={downloadImage}
-                  className="w-full"
-                  disabled={!settings.croppedImageUrl}
-                >
-                  {settings.aspectRatio === "feed" ? "Baixar imagem" : "Baixar story"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+	useEffect(() => {
+		if (settings.imageUrl) {
+			fetchImageThroughProxy(settings.imageUrl)
+		}
+	}, [settings.imageUrl, fetchImageThroughProxy])
+
+	useEffect(() => {
+		if (
+			debouncedCrop &&
+			debouncedCrop.width > 0 &&
+			debouncedCrop.height > 0 &&
+			settings.proxiedImageUrl
+		) {
+			generateCroppedImage()
+		}
+	}, [
+		debouncedCrop,
+		debouncedAspectRatio,
+		settings.proxiedImageUrl,
+		generateCroppedImage
+	])
+
+	useEffect(() => {
+		return () => {
+			if (settings.croppedImageUrl?.startsWith('blob:')) {
+				URL.revokeObjectURL(settings.croppedImageUrl)
+			}
+			if (settings.proxiedImageUrl?.startsWith('blob:')) {
+				URL.revokeObjectURL(settings.proxiedImageUrl)
+			}
+		}
+	}, [])
+
+	useEffect(() => {
+		if (settings.croppedImageUrl?.startsWith('blob:')) {
+			URL.revokeObjectURL(settings.croppedImageUrl)
+		}
+		if (settings.proxiedImageUrl?.startsWith('blob:')) {
+			URL.revokeObjectURL(settings.proxiedImageUrl)
+		}
+		setSettings(prev => ({
+			...prev,
+			croppedImageUrl: null,
+			proxiedImageUrl: null
+		}))
+	}, [settings.imageUrl])
+
+	const downloadImage = useCallback(() => {
+		if (!settings.finalImageUrl) return
+
+		const a = document.createElement('a')
+		a.href = settings.finalImageUrl
+		a.download = downloadFilename
+		a.click()
+	}, [settings.finalImageUrl, downloadFilename])
+
+	const handleImageUrlChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setSettings(prev => ({ ...prev, imageUrl: e.target.value }))
+		},
+		[]
+	)
+
+	const handleKickerChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setSettings(prev => ({ ...prev, kicker: e.target.value }))
+		},
+		[]
+	)
+
+	const handleTitleChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			setSettings(prev => ({ ...prev, title: e.target.value }))
+		},
+		[]
+	)
+
+	const handleKickerTextColorChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setSettings(prev => ({ ...prev, kickerTextColor: e.target.value }))
+		},
+		[]
+	)
+
+	const handleKickerBgColorChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setSettings(prev => ({ ...prev, kickerBgColor: e.target.value }))
+		},
+		[]
+	)
+
+	return (
+		<div className="min-h-screen bg-gray-50 p-4">
+			<div className="max-w-7xl mx-auto">
+				<div className="grid lg:grid-cols-4 gap-6">
+					<Card className="h-fit lg:col-span-3">
+						<CardHeader>
+							<CardTitle>Visualizar imagem</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="h-[500px] p-4 flex items-center justify-center">
+								{settings.proxiedImageUrl ? (
+									<CropperComponent
+										imageUrl={settings.proxiedImageUrl}
+										aspectRatio={cropperAspectRatio}
+										onCropChange={handleCropChange}
+										kicker={settings.kicker}
+										title={settings.title}
+										kickerBgColor={settings.kickerBgColor}
+										kickerTextColor={settings.kickerTextColor}
+										aspectRatioType={settings.aspectRatio}
+									/>
+								) : (
+									<div className="flex items-center justify-center h-[500px]">
+										<div className="text-center text-gray-500">
+											<p>
+												{isProcessing
+													? 'Processando imagem...'
+													: 'Carregando imagem...'}
+											</p>
+										</div>
+									</div>
+								)}
+							</div>
+						</CardContent>
+					</Card>
+
+					<div className="space-y-2.5">
+						<Card>
+							<CardContent>
+								<CardTitle className="pb-4">Modo de exibição</CardTitle>
+								<Tabs
+									value={settings.aspectRatio}
+									onValueChange={value =>
+										handleAspectRatioChange(value as AspectRatio)
+									}
+								>
+									<TabsList className="grid w-full grid-cols-2">
+										<TabsTrigger value="feed">Feed</TabsTrigger>
+										<TabsTrigger value="story">Story</TabsTrigger>
+									</TabsList>
+								</Tabs>
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardHeader>
+								<CardTitle>Configurações</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-2">
+								<div className="space-y-2">
+									<Label htmlFor="imageUrl">URL da Imagem</Label>
+									<Input
+										id="imageUrl"
+										type="url"
+										placeholder="https://example.com/image.jpg"
+										value={settings.imageUrl}
+										onChange={handleImageUrlChange}
+									/>
+								</div>
+
+								<div className="space-y-2">
+									<Label htmlFor="kicker">Chapéu</Label>
+									<Input
+										id="kicker"
+										placeholder="Ex: Urgente"
+										value={settings.kicker}
+										onChange={handleKickerChange}
+									/>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4">
+									<div className="space-y-2">
+										<Label htmlFor="kickerTextColor">Cor do Texto</Label>
+										<div className="flex items-center space-x-2">
+											<input
+												id="kickerTextColor"
+												type="color"
+												value={settings.kickerTextColor}
+												onChange={handleKickerTextColorChange}
+												className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+											/>
+										</div>
+									</div>
+
+									<div className="space-y-2">
+										<Label htmlFor="kickerBgColor">Cor de Fundo</Label>
+										<div className="flex items-center space-x-2">
+											<input
+												id="kickerBgColor"
+												type="color"
+												value={settings.kickerBgColor}
+												onChange={handleKickerBgColorChange}
+												className="w-full h-8 rounded border border-gray-300 cursor-pointer"
+											/>
+										</div>
+									</div>
+								</div>
+
+								<div className="space-y-2">
+									<Label htmlFor="title">Título</Label>
+									<Textarea
+										id="title"
+										placeholder="Digite o título da matéria..."
+										value={settings.title}
+										onChange={handleTitleChange}
+										className="w-full h-28 resize-none"
+									/>
+								</div>
+
+								<Button
+									onClick={downloadImage}
+									className="w-full"
+									disabled={
+										!settings.finalImageUrl || isProcessing || isAnyDebouncing
+									}
+								>
+									{isProcessing || isAnyDebouncing
+										? 'Processando...'
+										: settings.aspectRatio === 'feed'
+											? 'Baixar imagem'
+											: 'Baixar story'}
+								</Button>
+							</CardContent>
+						</Card>
+					</div>
+
+					{settings.croppedImageUrl && (
+						<div className="hidden">
+							<CombinedImageGenerator
+								croppedImageUrl={settings.croppedImageUrl}
+								kicker={settings.kicker}
+								title={settings.title}
+								kickerBgColor={settings.kickerBgColor}
+								kickerTextColor={settings.kickerTextColor}
+								aspectRatio={settings.aspectRatio}
+								debouncedKicker={debouncedKicker}
+								debouncedTitle={debouncedTitle}
+								debouncedKickerBgColor={debouncedKickerBgColor}
+								debouncedKickerTextColor={debouncedKickerTextColor}
+								onFinalImageGenerated={imageUrl =>
+									setSettings(prev => ({ ...prev, finalImageUrl: imageUrl }))
+								}
+								className="w-full h-full"
+							/>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	)
 }
