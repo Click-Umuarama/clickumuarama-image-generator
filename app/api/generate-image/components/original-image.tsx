@@ -1,13 +1,15 @@
+import Image from 'next/image'
+
 interface OriginalImageProps {
-  imageUrl: string
+	imageUrl: string
 }
 
 export function OriginalImage({ imageUrl }: OriginalImageProps) {
-  return (
-    <img
-      src={imageUrl}
-      alt="Original Image"
-      className="w-full h-full object-cover"
-    />
-  )
-} 
+	return (
+		<Image
+			src={imageUrl}
+			alt="Original Image"
+			className="w-full h-full object-cover"
+		/>
+	)
+}
