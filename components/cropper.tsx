@@ -53,10 +53,10 @@ export const CropperComponent = memo(({
       contentPadding: isFeed ? 'pl-[14px] pr-10' : 'px-[10px]',
       contentMargin: isFeed ? 'mb-[24px]' : 'mb-24',
       kickerTextSize: isFeed ? 'text-[18px]' : 'text-[16px]',
-      titleTextSize: isFeed ? 'text-[16px]' : 'text-[12px]',
+      titleTextSize: isFeed ? 'text-[16px]' : 'text-[13px]',
       kickerStyles: {
         color: kickerTextColor,
-        backgroundColor: kickerBgColor
+        backgroundColor: kickerBgColor,
       }
     }
   }, [aspectRatioType, kickerTextColor, kickerBgColor])
@@ -144,7 +144,7 @@ export const CropperComponent = memo(({
                   {kicker && (
                     <div
                       className={cn(
-                        "inline-block px-2 py-0 font-bold rounded-[12px] mb-1 font-board-of-directors",
+                        "inline-block px-1 py-0 font-bold rounded-[6px] mb-1 font-board-of-directors",
                         textStyles.kickerTextSize
                       )}
                       style={textStyles.kickerStyles}
@@ -154,15 +154,17 @@ export const CropperComponent = memo(({
                   )}
 
                   {title && (
-                    <h3
+                    <p
                       className={cn(
-                        "text-white leading-tight whitespace-pre-wrap font-bebas-kai",
-                        `text-shadow-[0px_15px_14.5px_rgba(0,0,0,1)]`,
+                        "text-white leading-tight whitespace-pre-wrap font-bebas-kai text-shadow-[0px_5px_15px_rgba(0,0,0,1),0px_5px_15px_rgba(0,0,0,1),0px_5px_15px_rgba(0,0,0,1)]",
                         textStyles.titleTextSize
                       )}
+                      style={{
+                        lineHeight: '1.2'
+                      }}
                     >
                       {title}
-                    </h3>
+                    </p>
                   )}
 
                 </div>
@@ -175,7 +177,7 @@ export const CropperComponent = memo(({
                     alt="cu-logo"
                     width={24}
                     height={24}
-                    className="max-w-[24px] mb-8 object-contain"
+                    className="max-w-[24px] mb-7 object-contain"
                   />
                 </div>
               )}

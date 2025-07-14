@@ -1,8 +1,7 @@
-/** biome-ignore-all lint/correctness/useExhaustiveDependencies: too much useEffect to do individualy.
- * some dependencies aren't added 'cause it isn't needed.
- */
+/* biome-ignore-all lint/correctness/useExhaustiveDependencies: too much useEffect to do individualy. some dependencies aren't added 'cause it isn't needed. */
 'use client'
 
+import { ExternalLink } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -63,31 +62,24 @@ export default function ImageCropper() {
 	})
 
 	const [isProcessing, setIsProcessing] = useState(false)
+	const [isTextGenerating, setIsTextGenerating] = useState(false)
 
 	const prevCropRef = useRef(settings.crop)
 	const prevAspectRatioRef = useRef(settings.aspectRatio)
 	const prevProxiedImageUrlRef = useRef<string | null>(null)
 
-	const [debouncedCrop, isCropDebouncing] = useDebounceWithState(
-		settings.crop,
-		750
+	const [debouncedCrop] = useDebounceWithState(settings.crop, 750)
+	const [debouncedAspectRatio] = useDebounceWithState(settings.aspectRatio, 750)
+	const [debouncedKicker] = useDebounceWithState(settings.kicker, 300)
+	const [debouncedTitle] = useDebounceWithState(settings.title, 300)
+	const [debouncedKickerBgColor] = useDebounceWithState(
+		settings.kickerBgColor,
+		300
 	)
-	const [debouncedAspectRatio, isAspectRatioDebouncing] = useDebounceWithState(
-		settings.aspectRatio,
-		750
+	const [debouncedKickerTextColor] = useDebounceWithState(
+		settings.kickerTextColor,
+		300
 	)
-	const [debouncedKicker, isKickerDebouncing] = useDebounceWithState(
-		settings.kicker,
-		750
-	)
-	const [debouncedTitle, isTitleDebouncing] = useDebounceWithState(
-		settings.title,
-		750
-	)
-	const [debouncedKickerBgColor, isKickerBgColorDebouncing] =
-		useDebounceWithState(settings.kickerBgColor, 750)
-	const [debouncedKickerTextColor, isKickerTextColorDebouncing] =
-		useDebounceWithState(settings.kickerTextColor, 750)
 
 	const fetchImageThroughProxy = useCallback(async (imageUrl: string) => {
 		try {
@@ -111,7 +103,11 @@ export default function ImageCropper() {
 	}, [])
 
 	const generateCroppedImage = useCallback(async () => {
-		if (!debouncedCrop || !settings.proxiedImageUrl) return
+		const imageUrlToUse =
+			settings.proxiedImageUrl ||
+			(settings.imageUrl?.startsWith('blob:') ? settings.imageUrl : null)
+
+		if (!debouncedCrop || !imageUrlToUse) return
 
 		const prevCrop = prevCropRef.current
 		const hasCropChanged =
@@ -123,8 +119,7 @@ export default function ImageCropper() {
 		const hasAspectRatioChanged =
 			prevAspectRatioRef.current !== debouncedAspectRatio
 
-		const hasImageChanged =
-			prevProxiedImageUrlRef.current !== settings.proxiedImageUrl
+		const hasImageChanged = prevProxiedImageUrlRef.current !== imageUrlToUse
 
 		if (!hasCropChanged && !hasAspectRatioChanged && !hasImageChanged) {
 			return
@@ -172,7 +167,7 @@ export default function ImageCropper() {
 
 						prevCropRef.current = debouncedCrop
 						prevAspectRatioRef.current = debouncedAspectRatio
-						prevProxiedImageUrlRef.current = settings.proxiedImageUrl
+						prevProxiedImageUrlRef.current = imageUrlToUse
 					}
 				}, 'image/png')
 			}
@@ -181,13 +176,18 @@ export default function ImageCropper() {
 				throw new Error('Failed to load image')
 			}
 
-			img.src = settings.proxiedImageUrl
+			img.src = imageUrlToUse
 		} catch (error) {
 			console.error('Error generating cropped image:', error)
 		} finally {
 			setIsProcessing(false)
 		}
-	}, [debouncedCrop, debouncedAspectRatio, settings.proxiedImageUrl])
+	}, [
+		debouncedCrop,
+		debouncedAspectRatio,
+		settings.proxiedImageUrl,
+		settings.imageUrl
+	])
 
 	const handleAspectRatioChange = useCallback((ratio: AspectRatio) => {
 		setSettings(prev => ({ ...prev, aspectRatio: ratio }))
@@ -212,36 +212,31 @@ export default function ImageCropper() {
 		return settings.aspectRatio === 'feed' ? 4 / 5 : 9 / 16
 	}, [settings.aspectRatio])
 
-	const isAnyDebouncing = useMemo(() => {
-		return (
-			isCropDebouncing ||
-			isAspectRatioDebouncing ||
-			isKickerDebouncing ||
-			isTitleDebouncing ||
-			isKickerBgColorDebouncing ||
-			isKickerTextColorDebouncing
-		)
-	}, [
-		isCropDebouncing,
-		isAspectRatioDebouncing,
-		isKickerDebouncing,
-		isTitleDebouncing,
-		isKickerBgColorDebouncing,
-		isKickerTextColorDebouncing
-	])
+	const isAnyProcessing = useMemo(() => {
+		return isProcessing || isTextGenerating
+	}, [isProcessing, isTextGenerating])
 
 	useEffect(() => {
 		if (settings.imageUrl) {
-			fetchImageThroughProxy(settings.imageUrl)
+			if (settings.imageUrl.startsWith('blob:')) {
+				setSettings(prev => ({ ...prev, proxiedImageUrl: settings.imageUrl }))
+			} else {
+				fetchImageThroughProxy(settings.imageUrl)
+			}
+		} else {
+			setSettings(prev => ({ ...prev, proxiedImageUrl: null }))
 		}
 	}, [settings.imageUrl, fetchImageThroughProxy])
 
 	useEffect(() => {
+		const hasImageUrl =
+			settings.proxiedImageUrl || settings.imageUrl?.startsWith('blob:')
+
 		if (
 			debouncedCrop &&
 			debouncedCrop.width > 0 &&
 			debouncedCrop.height > 0 &&
-			settings.proxiedImageUrl
+			hasImageUrl
 		) {
 			generateCroppedImage()
 		}
@@ -249,6 +244,7 @@ export default function ImageCropper() {
 		debouncedCrop,
 		debouncedAspectRatio,
 		settings.proxiedImageUrl,
+		settings.imageUrl,
 		generateCroppedImage
 	])
 
@@ -270,6 +266,9 @@ export default function ImageCropper() {
 		if (settings.proxiedImageUrl?.startsWith('blob:')) {
 			URL.revokeObjectURL(settings.proxiedImageUrl)
 		}
+		if (settings.imageUrl?.startsWith('blob:')) {
+			URL.revokeObjectURL(settings.imageUrl)
+		}
 		setSettings(prev => ({
 			...prev,
 			croppedImageUrl: null,
@@ -286,9 +285,13 @@ export default function ImageCropper() {
 		a.click()
 	}, [settings.finalImageUrl, downloadFilename])
 
-	const handleImageUrlChange = useCallback(
+	const handleFileChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
-			setSettings(prev => ({ ...prev, imageUrl: e.target.value }))
+			const file = e.target.files?.[0]
+			if (file) {
+				const fileUrl = URL.createObjectURL(file)
+				setSettings(prev => ({ ...prev, imageUrl: fileUrl }))
+			}
 		},
 		[]
 	)
@@ -321,6 +324,12 @@ export default function ImageCropper() {
 		[]
 	)
 
+	const handleOpenImageUrl = useCallback(() => {
+		if (imgParam) {
+			window.open(imgParam, '_blank')
+		}
+	}, [imgParam])
+
 	return (
 		<div className="min-h-screen bg-gray-50 p-4">
 			<div className="max-w-7xl mx-auto">
@@ -331,9 +340,10 @@ export default function ImageCropper() {
 						</CardHeader>
 						<CardContent className="space-y-4">
 							<div className="h-[500px] p-4 flex items-center justify-center">
-								{settings.proxiedImageUrl ? (
+								{settings.proxiedImageUrl ||
+								settings.imageUrl?.startsWith('blob:') ? (
 									<CropperComponent
-										imageUrl={settings.proxiedImageUrl}
+										imageUrl={settings.proxiedImageUrl || settings.imageUrl}
 										aspectRatio={cropperAspectRatio}
 										onCropChange={handleCropChange}
 										kicker={settings.kicker}
@@ -348,7 +358,7 @@ export default function ImageCropper() {
 											<p>
 												{isProcessing
 													? 'Processando imagem...'
-													: 'Carregando imagem...'}
+													: 'Insira uma imagem.'}
 											</p>
 										</div>
 									</div>
@@ -380,16 +390,37 @@ export default function ImageCropper() {
 								<CardTitle>Configurações</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-2">
-								<div className="space-y-2">
-									<Label htmlFor="imageUrl">URL da Imagem</Label>
-									<Input
-										id="imageUrl"
-										type="url"
-										placeholder="https://example.com/image.jpg"
-										value={settings.imageUrl}
-										onChange={handleImageUrlChange}
-									/>
-								</div>
+								{!imgParam && (
+									<div className="space-y-2">
+										<Label htmlFor="imageFile">Selecionar Imagem</Label>
+										<Input
+											id="imageFile"
+											type="file"
+											accept="image/*"
+											onChange={handleFileChange}
+											className="cursor-pointer"
+										/>
+									</div>
+								)}
+
+								{imgParam && (
+									<div className="space-y-2">
+										<Label>URL da Imagem</Label>
+										<div className="flex items-center justify-between p-1 border rounded-md h-9 bg-gray-50">
+											<p className="text-sm text-gray-700 truncate flex-1 mr-2">
+												{imgParam}
+											</p>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={handleOpenImageUrl}
+												className="shrink-0 hover:bg-gray-200 hover:cursor-pointer transition-colors duration-150 delay-100 ease-linear"
+											>
+												<ExternalLink className="size-4" />
+											</Button>
+										</div>
+									</div>
+								)}
 
 								<div className="space-y-2">
 									<Label htmlFor="kicker">Chapéu</Label>
@@ -443,11 +474,9 @@ export default function ImageCropper() {
 								<Button
 									onClick={downloadImage}
 									className="w-full"
-									disabled={
-										!settings.finalImageUrl || isProcessing || isAnyDebouncing
-									}
+									disabled={!settings.finalImageUrl || isAnyProcessing}
 								>
-									{isProcessing || isAnyDebouncing
+									{isAnyProcessing
 										? 'Processando...'
 										: settings.aspectRatio === 'feed'
 											? 'Baixar imagem'
@@ -473,6 +502,7 @@ export default function ImageCropper() {
 								onFinalImageGenerated={imageUrl =>
 									setSettings(prev => ({ ...prev, finalImageUrl: imageUrl }))
 								}
+								onGeneratingChange={setIsTextGenerating}
 								className="w-full h-full"
 							/>
 						</div>

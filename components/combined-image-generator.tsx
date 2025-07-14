@@ -1,4 +1,4 @@
-/** biome-ignore-all lint/correctness/useHookAtTopLevel: it is needed to work. */
+/* biome-ignore-all lint/correctness/useHookAtTopLevel: it is needed to work. */
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
@@ -13,6 +13,7 @@ interface CombinedImageGeneratorProps {
   kickerTextColor: string
   aspectRatio: "feed" | "story"
   onFinalImageGenerated?: (imageUrl: string) => void
+  onGeneratingChange?: (isGenerating: boolean) => void
   className?: string
   debouncedKicker?: string
   debouncedTitle?: string
@@ -28,6 +29,7 @@ export const CombinedImageGenerator = ({
   kickerTextColor,
   aspectRatio,
   onFinalImageGenerated,
+  onGeneratingChange,
   className,
   debouncedKicker: propDebouncedKicker,
   debouncedTitle: propDebouncedTitle,
@@ -77,8 +79,9 @@ export const CombinedImageGenerator = ({
 
     try {
       setIsGenerating(true)
+      onGeneratingChange?.(true)
 
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 50))
 
       const { toPng } = await import('html-to-image')
 
@@ -87,6 +90,8 @@ export const CombinedImageGenerator = ({
         backgroundColor: '#ffffff',
         width: 1080,
         height: aspectRatio === "feed" ? 1350 : 1920,
+        cacheBust: false,
+        skipAutoScale: true,
       })
 
       lastGeneratedRef.current = currentState
@@ -96,12 +101,12 @@ export const CombinedImageGenerator = ({
       try {
         const { toPng } = await import('html-to-image')
 
-        // biome-ignore lint/style/noNonNullAssertion: needed to try again before catch the error.
         const dataUrl = await toPng(containerRef.current!, {
           quality: 1.0,
           backgroundColor: '#ffffff',
           width: 1080,
           height: aspectRatio === "feed" ? 1350 : 1920,
+          cacheBust: false,
         })
 
         lastGeneratedRef.current = currentState
@@ -111,6 +116,7 @@ export const CombinedImageGenerator = ({
       }
     } finally {
       setIsGenerating(false)
+      onGeneratingChange?.(false)
     }
   }, [
     croppedImageUrl,
@@ -120,11 +126,18 @@ export const CombinedImageGenerator = ({
     debouncedKickerTextColor,
     aspectRatio,
     onFinalImageGenerated,
+    onGeneratingChange,
   ])
 
   useEffect(() => {
     if (croppedImageUrl) {
-      generateFinalImage()
+      const timeoutId = setTimeout(() => {
+        generateFinalImage()
+      }, 50)
+
+      return () => {
+        clearTimeout(timeoutId)
+      }
     }
   }, [croppedImageUrl, generateFinalImage])
 
