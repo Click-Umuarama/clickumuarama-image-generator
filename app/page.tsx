@@ -46,7 +46,7 @@ export default function ImageCropper() {
 	const [settings, setSettings] = useState<CropSettings>({
 		imageUrl: imgParam ?? '',
 		kicker: kickerParam ?? '',
-		kickerBgColor: kickerBgColorParam ?? '#D4D4D4',
+		kickerBgColor: kickerBgColorParam ?? '#D9D9D9',
 		kickerTextColor: kickerTextColorParam ?? '#000000',
 		title: titleParam ?? '',
 		aspectRatio: 'feed',
