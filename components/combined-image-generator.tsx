@@ -53,7 +53,7 @@ export const CombinedImageGenerator = ({
   }, [aspectRatio])
 
   const contentPadding = useMemo(() => {
-    return aspectRatio === 'feed' ? 'pl-[59px] pr-10' : 'pl-[57px]'
+    return aspectRatio === 'feed' ? 'pl-[59px] pr-10' : 'px-[57px]'
   }, [aspectRatio])
 
   const contentMargin = useMemo(() => {
@@ -167,7 +167,7 @@ export const CombinedImageGenerator = ({
           className="object-cover"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-10% to-25% via-black/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 from-0% via-black/5 via-25% to-transparent to-35%  " />
 
         {aspectRatio === 'feed' && (
           <div className="absolute top-[38px] left-[58px]">
@@ -202,7 +202,7 @@ export const CombinedImageGenerator = ({
             {debouncedTitle && (
               <p
                 className={cn(
-                  "text-white whitespace-pre-wrap font-bebas-kai text-shadow-[0px_15px_25px_rgba(0,0,0,1),0px_15px_35px_rgba(0,0,0,1),0px_15px_45px_rgba(0,0,0,1)]",
+                  "text-white whitespace-pre-wrap font-bebas-kai text-shadow-[0px_15px_15px_rgba(0,0,0,1),0px_15px_15px_rgba(0,0,0,1)]",
                   titleTextSize
                 )}
                 style={{

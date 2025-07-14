@@ -1,5 +1,5 @@
 "use client"
-// Comentário de teste
+
 import { useState, useCallback, useEffect, useRef, memo, useMemo } from "react"
 import {
   Cropper,
@@ -50,10 +50,10 @@ export const CropperComponent = memo(({
     const isFeed = aspectRatioType === "feed"
 
     return {
-      contentPadding: isFeed ? 'pl-[14px] pr-10' : 'px-[10px]',
+      contentPadding: isFeed ? 'px-[14px]' : 'px-[10px] pr-[13px]',
       contentMargin: isFeed ? 'mb-[24px]' : 'mb-24',
       kickerTextSize: isFeed ? 'text-[18px]' : 'text-[16px]',
-      titleTextSize: isFeed ? 'text-[16px]' : 'text-[13px]',
+      titleTextSize: isFeed ? 'text-[15px]' : 'text-[13px]',
       kickerStyles: {
         color: kickerTextColor,
         backgroundColor: kickerBgColor,
@@ -122,7 +122,7 @@ export const CropperComponent = memo(({
           {/** biome-ignore lint/correctness/noChildrenProp: it is a lib feat. */}
           <CropperCropArea className="border border-gray-300" children={
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/100 from-0% via-10% to-25% via-black/50 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-10% to-25% via-black/25 to-transparent" />
 
               {aspectRatioType === 'feed' && (
                 <div className="absolute top-8 left-[24px]">
