@@ -214,7 +214,7 @@ export const CombinedImageGenerator = ({
             )}
 
             {aspectRatio === 'story' && (
-              <div className="flex pr-[57px] flex-1 items-center justify-center size-full mx-auto mb-[130px] mt-[220px]">
+              <div className="flex flex-1 items-center justify-center size-full mx-auto mb-[130px] mt-[220px]">
                 <Image
                   src="/c-logo.png"
                   alt="cu-logo"
