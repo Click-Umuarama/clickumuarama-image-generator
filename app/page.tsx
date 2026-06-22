@@ -432,7 +432,7 @@ export default function ImageCropper() {
 									/>
 								</div>
 
-								<div className="grid grid-cols-2 gap-4">
+								<div className="grid grid-cols-2 gap-1 xl:gap-4">
 									<div className="space-y-2">
 										<Label htmlFor="kickerTextColor">Cor do Texto</Label>
 										<div className="flex items-center space-x-2">

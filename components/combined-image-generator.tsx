@@ -5,6 +5,156 @@ import { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import Image from "next/image"
 import { cn, useDebounce } from "@/lib/utils"
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = []
+  for (const paragraph of text.split('\n')) {
+    if (!paragraph) { lines.push(''); continue }
+    const words = paragraph.split(' ')
+    let currentLine = ''
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    }
+    if (currentLine) lines.push(currentLine)
+  }
+  return lines
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number
+) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+async function renderToCanvas(
+  croppedImageUrl: string,
+  kicker: string,
+  title: string,
+  kickerBgColor: string,
+  kickerTextColor: string,
+  aspectRatio: 'feed' | 'story'
+): Promise<string> {
+  const width = 1080
+  const height = aspectRatio === 'feed' ? 1350 : 1920
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')!
+
+  await document.fonts.ready
+
+  // Background (object-cover)
+  const bgImg = await loadImage(croppedImageUrl)
+  const scale = Math.max(width / bgImg.naturalWidth, height / bgImg.naturalHeight)
+  const scaledW = bgImg.naturalWidth * scale
+  const scaledH = bgImg.naturalHeight * scale
+  ctx.drawImage(bgImg, (width - scaledW) / 2, (height - scaledH) / 2, scaledW, scaledH)
+
+  // Gradient overlay (bottom to top: black/85 → black/5 at 25% → transparent at 35%)
+  const gradient = ctx.createLinearGradient(0, height, 0, 0)
+  gradient.addColorStop(0, 'rgba(0,0,0,0.85)')
+  gradient.addColorStop(0.25, 'rgba(0,0,0,0.05)')
+  gradient.addColorStop(0.35, 'rgba(0,0,0,0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, width, height)
+
+  // Logo
+  const logo = await loadImage('/c-logo.png')
+  if (aspectRatio === 'feed') {
+    ctx.drawImage(logo, 58, 38, 122, 122)
+  } else {
+    // Story: centered, logo bottom at ~154px from image bottom (mb-6=24 + mb-130=130)
+    const logoCenterY = height - 24 - 130 - 51.5
+    ctx.drawImage(logo, (width - 103) / 2, logoCenterY - 51.5, 103, 103)
+  }
+
+  const paddingLeft = aspectRatio === 'feed' ? 59 : 57
+  const paddingRight = aspectRatio === 'feed' ? 40 : 57
+  const paddingBottom = aspectRatio === 'feed' ? 58 : 24
+  const maxTextWidth = width - paddingLeft - paddingRight
+
+  let contentBottomY = height - paddingBottom
+
+  // Title (drawn first to measure height, then bottom-aligned)
+  if (title) {
+    const fontSize = aspectRatio === 'feed' ? 48 : 61
+    const lineHeight = fontSize * 1.2
+    ctx.font = `${fontSize}px "Bebas Kai"`
+    const lines = wrapText(ctx, title, maxTextWidth)
+    const startY = contentBottomY - lines.length * lineHeight
+
+    // Double shadow to match CSS text-shadow definition
+    ctx.fillStyle = '#ffffff'
+    ctx.textBaseline = 'top'
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.shadowColor = 'rgba(0,0,0,1)'
+      ctx.shadowBlur = 15
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 15
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], paddingLeft, startY + i * lineHeight)
+      }
+    }
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+
+    contentBottomY = startY
+  }
+
+  // Kicker badge
+  if (kicker) {
+    const fontSize = aspectRatio === 'feed' ? 54 : 68
+    const paddingX = aspectRatio === 'feed' ? 12 : 20  // px-3 / px-5
+    const marginBottom = aspectRatio === 'feed' ? 12 : 20  // mb-3 / mb-5
+    const marginLeft = aspectRatio === 'feed' ? -3 : 4   // ml-[-3px] / ml-1
+    const maxHeight = aspectRatio === 'feed' ? 72 : 90
+
+    ctx.font = `bold ${fontSize}px "Board of Directors Heavy"`
+    const textWidth = ctx.measureText(kicker).width
+    const badgeW = textWidth + paddingX * 2
+    const badgeH = Math.min(maxHeight, fontSize * 1.2)
+    const badgeX = paddingLeft + marginLeft
+    const badgeY = contentBottomY - marginBottom - badgeH
+
+    ctx.fillStyle = kickerBgColor
+    drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 20)
+    ctx.fill()
+
+    ctx.fillStyle = kickerTextColor
+    ctx.textBaseline = 'middle'
+    ctx.fillText(kicker, badgeX + paddingX, badgeY + badgeH / 2)
+  }
+
+  return canvas.toDataURL('image/png')
+}
+
 interface CombinedImageGeneratorProps {
   croppedImageUrl: string | null
   kicker: string
@@ -69,7 +219,7 @@ export const CombinedImageGenerator = ({
   }, [aspectRatio])
 
   const generateFinalImage = useCallback(async () => {
-    if (!containerRef.current || !croppedImageUrl || !onFinalImageGenerated) return
+    if (!croppedImageUrl || !onFinalImageGenerated) return
 
     const currentState = `${croppedImageUrl}-${debouncedKicker}-${debouncedTitle}-${debouncedKickerBgColor}-${debouncedKickerTextColor}-${aspectRatio}`
 
@@ -81,39 +231,19 @@ export const CombinedImageGenerator = ({
       setIsGenerating(true)
       onGeneratingChange?.(true)
 
-      await new Promise(resolve => setTimeout(resolve, 50))
-
-      const { toPng } = await import('html-to-image')
-
-      const dataUrl = await toPng(containerRef.current, {
-        quality: 1.0,
-        backgroundColor: '#ffffff',
-        width: 1080,
-        height: aspectRatio === "feed" ? 1350 : 1920,
-        cacheBust: false,
-        skipAutoScale: true,
-      })
+      const dataUrl = await renderToCanvas(
+        croppedImageUrl,
+        debouncedKicker,
+        debouncedTitle,
+        debouncedKickerBgColor,
+        debouncedKickerTextColor,
+        aspectRatio,
+      )
 
       lastGeneratedRef.current = currentState
       onFinalImageGenerated(dataUrl)
     } catch (error) {
       console.error('Error generating final image:', error)
-      try {
-        const { toPng } = await import('html-to-image')
-
-        const dataUrl = await toPng(containerRef.current!, {
-          quality: 1.0,
-          backgroundColor: '#ffffff',
-          width: 1080,
-          height: aspectRatio === "feed" ? 1350 : 1920,
-          cacheBust: false,
-        })
-
-        lastGeneratedRef.current = currentState
-        onFinalImageGenerated(dataUrl)
-      } catch (fallbackError) {
-        console.error('Fallback generation also failed:', fallbackError)
-      }
     } finally {
       setIsGenerating(false)
       onGeneratingChange?.(false)
