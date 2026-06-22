@@ -84,14 +84,11 @@ async function renderToCanvas(
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, width, height)
 
-  // Logo
   const logo = await loadImage('/c-logo.png')
+
+  // Feed logo at top-left, drawn before content
   if (aspectRatio === 'feed') {
     ctx.drawImage(logo, 58, 38, 122, 122)
-  } else {
-    // Story: centered, logo bottom at ~154px from image bottom (mb-6=24 + mb-130=130)
-    const logoCenterY = height - 24 - 130 - 51.5
-    ctx.drawImage(logo, (width - 103) / 2, logoCenterY - 51.5, 103, 103)
   }
 
   const paddingLeft = aspectRatio === 'feed' ? 59 : 57
@@ -99,7 +96,9 @@ async function renderToCanvas(
   const paddingBottom = aspectRatio === 'feed' ? 58 : 24
   const maxTextWidth = width - paddingLeft - paddingRight
 
-  let contentBottomY = height - paddingBottom
+  // Story: reserve space for logo at bottom (mb:130 + height:103 + mt:220 = 453px)
+  const storyLogoReserve = aspectRatio === 'story' ? 453 : 0
+  let contentBottomY = height - paddingBottom - storyLogoReserve
 
   // Title (drawn first to measure height, then bottom-aligned)
   if (title) {
@@ -128,7 +127,7 @@ async function renderToCanvas(
     contentBottomY = startY
   }
 
-  // Kicker badge
+  // Kicker badge (drawn after title, above it)
   if (kicker) {
     const fontSize = aspectRatio === 'feed' ? 54 : 68
     const paddingX = aspectRatio === 'feed' ? 12 : 20  // px-3 / px-5
@@ -150,6 +149,12 @@ async function renderToCanvas(
     ctx.fillStyle = kickerTextColor
     ctx.textBaseline = 'middle'
     ctx.fillText(kicker, badgeX + paddingX, badgeY + badgeH / 2)
+  }
+
+  // Story logo drawn last (below title/kicker): bottom at height - 24 - 130 = 1766
+  if (aspectRatio === 'story') {
+    const logoY = height - paddingBottom - 130 - 103
+    ctx.drawImage(logo, (width - 103) / 2, logoY, 103, 103)
   }
 
   return canvas.toDataURL('image/png')
