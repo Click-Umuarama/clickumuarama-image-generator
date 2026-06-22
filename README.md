@@ -49,3 +49,7 @@ $ pnpm run dev
 ```console
 $ pnpm run deploy
 ```
+
+---
+
+By e/code
