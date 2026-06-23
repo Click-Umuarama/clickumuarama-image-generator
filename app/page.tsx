@@ -35,11 +35,18 @@ interface CropSettings {
 	proxiedImageUrl: string | null
 }
 
+function decodeParam(value: string | null): string | null {
+	if (!value) return value
+	const textarea = document.createElement('textarea')
+	textarea.innerHTML = value
+	return textarea.value
+}
+
 export default function ImageCropper() {
 	const searchParams = useSearchParams()
 	const imgParam = searchParams.get('img')
-	const kickerParam = searchParams.get('kicker')
-	const titleParam = searchParams.get('title')
+	const kickerParam = decodeParam(searchParams.get('kicker'))
+	const titleParam = decodeParam(searchParams.get('title'))
 	const kickerBgColorParam = searchParams.get('kickerBg')
 	const kickerTextColorParam = searchParams.get('kickerColor')
 
